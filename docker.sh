@@ -1,0 +1,1 @@
+docker run --gpus all -it -v /mnt/d/cs336/cs336-a2-systems:/workspace nvcr.io/nvidia/pytorch:23.08-py3
