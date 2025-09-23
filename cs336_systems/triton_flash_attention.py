@@ -116,7 +116,8 @@ def flash_bwd_cal_D_kernel(
     stride_dob, stride_doq, stride_dod,
     stride_db, stride_dq,
     N_QUERYS, D_,
-    Q_TILE_SIZE, D_TILE_SIZE,
+    # 这里要用tl.constexpr, 分块的形状必须被提前确定
+    Q_TILE_SIZE: tl.constexpr , D_TILE_SIZE: tl.constexpr,
 ):
     query_tile_idx = tl.program_id(0)
     batch_idx = tl.program_id(1)
@@ -445,19 +446,19 @@ class FlashAttentionFunc(torch.autograd.Function):
         assert B_q == B_k
 
         #计算D = rowsum(dO * O)
-        D = torch.sum(O*dO, dim = -1)
+        # D = torch.sum(O*dO, dim = -1)
 
-        # D = torch.empty_like(L)
-        # Q_TILE_SIZE = 64
-        # D_TILE_SIZE = 64
-        # flash_bwd_cal_D_kernel[(triton.cdiv(d_q, Q_TILE_SIZE), batch_size)](
-        #     O, dO, D,
-        #     O.stride(0), O.stride(1), O.stride(2),
-        #     dO.stride(0), dO.stride(1), dO.stride(2),
-        #     D.stride(0), D.stride(1),
-        #     N_QUERYS=d_q, D_=d,
-        #     Q_TILE_SIZE=Q_TILE_SIZE, D_TILE_SIZE=D_TILE_SIZE,
-        # )
+        D = torch.empty_like(L)
+        Q_TILE_SIZE = 64
+        D_TILE_SIZE = 64
+        flash_bwd_cal_D_kernel[(triton.cdiv(d_q, Q_TILE_SIZE), batch_size)](
+            O, dO, D,
+            O.stride(0), O.stride(1), O.stride(2),
+            dO.stride(0), dO.stride(1), dO.stride(2),
+            D.stride(0), D.stride(1),
+            N_QUERYS=d_q, D_=d,
+            Q_TILE_SIZE=Q_TILE_SIZE, D_TILE_SIZE=D_TILE_SIZE,
+        )
 
         dQ = torch.zeros_like(Q)
         dK = torch.zeros_like(K)
